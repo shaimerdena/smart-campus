@@ -2,23 +2,7 @@ import { describe, it, expect } from "vitest";
 import { checkAvailability } from "./lib/availability";
 import type { Booking, Room } from "./lib/types";
 import { rooms } from "./lib/sampleData";
-
-// Helper function for F1-F4 filtering logic verification
-function filterRooms(
-  catalog: Room[],
-  criteria: { minCapacity: number; equipment: string[] }
-): Room[] {
-  return catalog.filter((room) => {
-    if (room.capacity < criteria.minCapacity) return false;
-    if (
-      criteria.equipment.length > 0 &&
-      !criteria.equipment.every((eq) => room.equipment.includes(eq))
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
+import { filterRooms } from "./lib/filters";
 
 describe("Task #04 - Automated Regression & Feature Test Suite", () => {
   const dummyRoom: Room = rooms[0]; // Room A (capacity: 8)

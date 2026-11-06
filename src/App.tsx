@@ -13,6 +13,7 @@ import {
   Ban,
 } from "lucide-react";
 import { rooms } from "@/lib/sampleData";
+import { filterRooms } from "@/lib/filters";
 import type { AvailabilityResult } from "@/lib/types";
 import {
   checkAvailability,
@@ -53,15 +54,7 @@ export default function App() {
   }, []);
 
   const filteredRooms = useMemo(
-    () =>
-      rooms.filter((room) => {
-        if (room.capacity < minCapacity) return false;
-        if (requiredEquipment.length > 0) {
-          const hasAll = requiredEquipment.every((e) => room.equipment.includes(e));
-          if (!hasAll) return false;
-        }
-        return true;
-      }),
+    () => filterRooms(rooms, { minCapacity, equipment: requiredEquipment }),
     [minCapacity, requiredEquipment]
   );
 

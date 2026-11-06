@@ -25,23 +25,17 @@ export function minutesToTime(mins: number): string {
 }
 
 /**
- * Checks whether a candidate interval is valid and available.
- * AC1: 0 ≤ start < end ≤ 1440, start > currentTime
- * AC2: duration ≤ 120 min
- * AC3: room must not be blocked
- * AC4: no overlap with existing bookings (touching allowed)
- * AC5: returns decision without modifying booking data
+ * Pure minute-based validation core (AC1–AC5).
+ * Does not parse or produce string times — callers pass integers.
  */
-export function checkAvailability(
-  startStr: string,
-  endStr: string,
+export function checkAvailabilityMinutes(
+  start: number,
+  end: number,
   room: Room,
   roomBookings: Booking[],
   currentTime: number
 ): AvailabilityResult {
   const reasons: string[] = [];
-  const start = timeToMinutes(startStr);
-  const end = timeToMinutes(endStr);
 
   // AC1: validate interval bounds
   if (start < 0 || end > MINUTES_PER_DAY) {
@@ -78,6 +72,28 @@ export function checkAvailability(
     );
   }
 
+  // AC5: returns decision without mutating booking data
   const decision = reasons.length === 0 ? "available" : "unavailable";
   return { decision, reasons };
+}
+
+/**
+ * String-accepting adapter (AC1–AC5).
+ * Preserves the original checkAvailability contract: "HH:MM" inputs,
+ * { decision, reasons } output, no mutation of roomBookings.
+ */
+export function checkAvailability(
+  startStr: string,
+  endStr: string,
+  room: Room,
+  roomBookings: Booking[],
+  currentTime: number
+): AvailabilityResult {
+  return checkAvailabilityMinutes(
+    timeToMinutes(startStr),
+    timeToMinutes(endStr),
+    room,
+    roomBookings,
+    currentTime
+  );
 }
