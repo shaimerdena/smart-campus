@@ -81,3 +81,86 @@ describe("Task #04 - Automated Regression & Feature Test Suite", () => {
     expect(resRoom5.decision).toBe("available");
   });
 });
+
+describe("Task — AC regression suite (past, reversed, duration, blocked, overlap, touching, fixtures)", () => {
+  const openRoom: Room = rooms[0]; // r1, not blocked
+  const blockedRoom: Room = rooms.find((r) => r.id === "r2")!; // r2, blocked
+  const emptyRoom: Room = rooms.find((r) => r.id === "r5")!; // r5, not blocked, no bookings
+  const CURRENT = 540; // 09:00
+
+  // Deep snapshot of fixtures so any mutation is detectable.
+  function snapshotRooms() {
+    return rooms.map((r) => ({
+      id: r.id,
+      name: r.name,
+      blocked: r.blocked,
+      capacity: r.capacity,
+      equipment: [...r.equipment],
+      bookings: r.bookings.map((b) => ({ ...b })),
+    }));
+  }
+
+  // Past time — AC1: start must be after currentTime.
+  // 08:00–09:00 (480–540) starts at 480, which is NOT > 480, so reject.
+  it("R01 (AC1): rejects a start time at or before the current time", () => {
+    const result = checkAvailability("08:00", "09:00", openRoom, [], CURRENT);
+    expect(result.decision).toBe("unavailable");
+    expect(result.reasons.some((r) => r.includes("after the current time"))).toBe(true);
+  });
+
+  // Reversed interval — AC1: requires start < end.
+  // 14:00–12:00 gives start > end, so reject.
+  it("R02 (AC1): rejects a reversed interval where start is after end", () => {
+    const result = checkAvailability("14:00", "12:00", openRoom, [], CURRENT);
+    expect(result.decision).toBe("unavailable");
+    expect(result.reasons).toContain("End time must be later than start time.");
+  });
+
+  // 121-minute duration — AC2: duration must be <= 120.
+  // 10:00–12:01 is 121 minutes, so reject.
+  it("R03 (AC2): rejects a booking one minute over the 120-minute maximum", () => {
+    const result = checkAvailability("10:00", "12:01", emptyRoom, [], CURRENT);
+    expect(result.decision).toBe("unavailable");
+    expect(result.reasons.some((r) => r.includes("120-minute maximum"))).toBe(true);
+  });
+
+  // Blocked room — AC3: a blocked room can never be booked.
+  // r2 is blocked, so reject regardless of the otherwise-valid interval.
+  it("R04 (AC3): rejects any interval when the selected room is blocked", () => {
+    const result = checkAvailability("14:00", "15:00", blockedRoom, blockedRoom.bookings, CURRENT);
+    expect(result.decision).toBe("unavailable");
+    expect(result.reasons.some((r) => r.includes("blocked"))).toBe(true);
+  });
+
+  // Overlap — AC4: an interval that intersects an existing booking is rejected.
+  // r1 has a booking 09:00–10:00 (540–600); a candidate 09:30–10:30 (570–630)
+  // intersects it (570 < 600 && 630 > 540), so reject.
+  it("R05 (AC4): rejects an interval that overlaps an existing booking", () => {
+    const result = checkAvailability("09:30", "10:30", openRoom, openRoom.bookings, CURRENT);
+    expect(result.decision).toBe("unavailable");
+    expect(result.reasons.some((r) => r.includes("Overlaps"))).toBe(true);
+  });
+
+  // Touching endpoints — AC4: touching is explicitly allowed.
+  // r1 has a booking 09:00–10:00 (540–600); a candidate 10:00–11:00 (600–660)
+  // touches but does not overlap (start 600 is not < b.end 600), so accept.
+  it("R06 (AC4): allows an interval that only touches an existing booking's endpoint", () => {
+    const result = checkAvailability("10:00", "11:00", openRoom, openRoom.bookings, CURRENT);
+    expect(result.decision).toBe("available");
+    expect(result.reasons).toHaveLength(0);
+  });
+
+  // Unchanged fixtures — AC5: checking availability must not mutate booking data.
+  // Run a rejected check (overlap + over-limit), then confirm the rooms array,
+  // every room's fields, and every booking are byte-for-byte unchanged.
+  it("R07 (AC5): leaves the fixtures and booking data unchanged after a check", () => {
+    const before = snapshotRooms();
+    checkAvailability("10:30", "13:30", openRoom, openRoom.bookings, CURRENT);
+    const after = snapshotRooms();
+    expect(after).toEqual(before);
+    // Explicitly confirm no booking was added, removed, or reordered.
+    const allBookingsBefore = rooms.flatMap((r) => r.bookings.map((b) => b.id));
+    const allBookingsAfter = rooms.flatMap((r) => r.bookings.map((b) => b.id));
+    expect(allBookingsAfter).toEqual(allBookingsBefore);
+  });
+});
